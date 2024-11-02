@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+This code performs text analysis on the novella "The Picture of Dorian Gray" by Oscar Wilde. The text was downloaded from gutenberg.org.
+
+```{r}
+#install and load necessary packages
+library(dotenv)
+library(tidytext)
+library(tidyverse)
+library(syuzhet)
+load_dot_env(".env")
+```
+
+```{r}
+#read the text of the book, located on local hardware, onto a variable
+novel = readLines(Sys.getenv("PATH_TO_BOOK"), encoding = "UTF-8")
+
+#make a data frame representing each line along with their index number
+novel_df = tibble(
+  lines = 1: length(novel), 
+  text = novel
+)
+
+View(novel_df)
+
+#vector with line numbers for breaking content into chapters
+content = c(109, 616, 1255, 1760, 2359, 2842, 3158, 3600, 4126, 4521, 4850, 5512, 5778, 6060, 6564, 6942, 7298, 7614, 8015, 8376, 8551)
+chapters = c()
+
+#loop that adds each chapter as a single string to chapters 
+for (i in 1:(length(content) - 1)) {
+  chapter_text = (paste(novel_df$text[content[i]:content[i + 1] - 1], collapse = " "))
+  chapters = c(chapters, chapter_text)
+}
+
+chapters
+
+#get sentiment scores of each chapter
+sentiment_scores = get_sentiment(chapters, method = "syuzhet")
+#represent the scores on a data frame
+sentiment_df = tibble(
+  index = 1: length(chapters),
+  sentiment = sentiment_scores
+)
+
+View(sentiment_df)
+```
+
+```{r}
+#plot the sentiments of the book by chapters using line and point graph
+ggplot(data = sentiment_df, mapping = aes(x = index, y = sentiment_scores)) +
+  geom_line(color = "steelblue") +
+  geom_point(color = "purple") +
+  labs(title = "Sentiment of the Text 'The Picture of Dorian Gray' by Chapters", x = "Chapter", y = "Sentiment Score") +
+  theme_minimal()
+```
+
+```{r}
+#tokenize the text into words
+words = novel_df %>%
+  unnest_tokens(word, text)
+
+data("stop_words")
+
+#remove stop words from the text
+words = words %>%
+  anti_join(stop_words, by = "word")
+
+#find most used words in the book
+word_count <- words %>%
+  count(word, sort = TRUE)
+
+head(word_count, 10)
+```
+
+```{r}
+#plot the top 10 most used words using a column chart
+ggplot(data = head(word_count, 10), mapping = aes(x = word, y = n)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Top 10 Words in the Text 'The Picture of Dorian Gray'", x = "Words", y = "Count") +
+  theme_minimal()
+```
+
